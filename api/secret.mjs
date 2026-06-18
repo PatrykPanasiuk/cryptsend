@@ -9,20 +9,21 @@ function generateId() {
     .join('');
 }
 
-function getKv() {
-  try {
-    const { kv } = await import('@vercel/kv');
-    return kv;
-  } catch {
-    return null;
-  }
+function getRedis() {
+  const url = process.env.KV_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) return null;
+
+  const { Redis } = await import('@upstash/redis');
+  return new Redis({ url, token });
 }
 
 export async function POST(request) {
-  const kv = await getKv();
-  if (!kv) {
+  const redis = await getRedis();
+  if (!redis) {
     return new Response(
-      JSON.stringify({ error: 'Server-side storage is not configured.' }),
+      JSON.stringify({ error: 'Server-side storage is not configured. Set KV_URL and KV_REST_API_TOKEN environment variables.' }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     );
   }
@@ -59,7 +60,7 @@ export async function POST(request) {
   }
 
   const id = generateId();
-  await kv.setex(`secret:${id}`, ttl, encrypted);
+  await redis.setex(`secret:${id}`, ttl, encrypted);
 
   return new Response(
     JSON.stringify({ id, ttl }),
@@ -74,8 +75,8 @@ export async function POST(request) {
 }
 
 export async function GET(request) {
-  const kv = await getKv();
-  if (!kv) {
+  const redis = await getRedis();
+  if (!redis) {
     return new Response(
       JSON.stringify({ error: 'Server-side storage is not configured.' }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
@@ -92,7 +93,7 @@ export async function GET(request) {
     );
   }
 
-  const encrypted = await kv.get(`secret:${id}`);
+  const encrypted = await redis.get(`secret:${id}`);
 
   if (!encrypted) {
     return new Response(
@@ -101,7 +102,7 @@ export async function GET(request) {
     );
   }
 
-  await kv.del(`secret:${id}`);
+  await redis.del(`secret:${id}`);
 
   return new Response(
     JSON.stringify({ encrypted }),
@@ -127,5 +128,5 @@ export async function OPTIONS() {
 }
 
 export const config = {
-  runtime: 'nodejs22.x',
+  runtime: 'nodejs',
 };
