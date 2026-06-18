@@ -75,7 +75,7 @@ The server never has the key. Server mode provides a single-use payload, but the
 
 ### Password-Protected Mode (Client & Server)
 
-Optionally protect any link with a passphrase. When enabled, the encryption key is derived from the passphrase using **PBKDF2-SHA-256** (600,000 iterations) with a random 16-byte salt. The salt is stored in the URL instead of the encryption key.
+Optionally protect any link with a passphrase. When enabled, the encryption key is derived from the passphrase using **PBKDF2-SHA-256** (600,000 iterations, 16-byte random salt). The salt is stored in the URL instead of the encryption key.
 
 **URL formats:**
 
@@ -84,12 +84,12 @@ Optionally protect any link with a passphrase. When enabled, the encryption key 
 /r/<id>#<version>.<salt>            Server mode (v2)
 ```
 
-- `version = 1` — no password (key is in the URL)
-- `version = 2` — password-protected (salt is in the URL, key derived from passphrase)
+- `version = 1` — key in URL, no password
+- `version = 2` — password-protected (salt in URL, key derived from passphrase)
 
-**To reveal:** the recipient opens the link, is prompted for the passphrase, and the key is derived client-side. The passphrase is never transmitted or stored.
+The passphrase is never transmitted or stored server-side.
 
-> **Backward compatible:** all existing links (no version prefix) are treated as v1 automatically.
+> **Backward compatible:** links without a version prefix are treated as v1 automatically.
 
 ---
 
