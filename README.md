@@ -30,6 +30,26 @@ CryptSend lets you share passwords, tokens, and other sensitive data with a sing
 
 ## How It Works
 
+```mermaid
+sequenceDiagram
+    participant Sender Browser
+    participant Vercel Edge
+    participant Recipient Browser
+
+    Sender Browser->>Sender Browser: AES-256-GCM encrypt(secret, key)
+    alt Client Mode (multi-view)
+        Sender Browser->>Recipient Browser: /#&lt;encrypted&gt;.&lt;key&gt;
+        Recipient Browser->>Recipient Browser: Decrypt from URL fragment
+    else Server Mode (one-time)
+        Sender Browser->>Vercel Edge: POST /api/secret { encrypted }
+        Vercel Edge->>Vercel Edge: Store in Redis, return id
+        Sender Browser->>Recipient Browser: /r/&lt;id&gt;#&lt;key&gt;
+        Recipient Browser->>Vercel Edge: GET /api/secret?id=&lt;id&gt;
+        Vercel Edge->>Recipient Browser: Encrypted payload (deleted)
+        Recipient Browser->>Recipient Browser: Decrypt with key from fragment
+    end
+```
+
 ### Multi-View Mode (Client-Only, Default)
 
 The encrypted payload and key are stored in the URL fragment (the part after `#`), which is never sent to any server. The recipient opens the link, the page reads the fragment, decrypts the secret in the browser, and displays it.
@@ -124,32 +144,29 @@ Once configured, the "Burn after reading" toggle will enable server-side one-tim
 
 ## Security Model
 
-```
-Sender's Browser                        Recipient's Browser
-      │                                        │
-      │  AES-256-GCM Encrypt                    │
-      │  ┌─────────────────┐                   │
-      │  │ Secret + Key →   │                   │
-      │  │ Encrypted Payload│                   │
-      │  └─────────────────┘                   │
-      │         │                               │
-      │         ├── Client mode ────────────────┤
-      │         │   URL: /#<payload>.<key>      │
-      │         │                               │
-      │         └── Server mode ────────────────┤
-      │             POST /api/secret → id       │
-      │             URL: /r/<id>#<key>          │
-      │                               │         │
-      │         ─── Share Link ───────→         │
-      │                                        │
-      │       Client mode:                       │
-      │         Decrypt from URL fragment        │
-      │                                        │
-      │       Server mode:                       │
-      │         GET /api/secret?id=<id>          │
-      │         → Encrypted payload (deleted)     │
-      │         → Decrypt with key from hash     │
-      │         → Secret shown once              │
+```mermaid
+sequenceDiagram
+    participant S as Sender Browser
+    participant N as Network
+    participant V as Vercel Edge
+    participant R as Recipient Browser
+
+    Note over S: AES-256-GCM encrypt<br/>96-bit IV, 128-bit auth tag
+    Note over S: Key: crypto.getRandomValues()<br/>256-bit
+    alt Client Mode
+        S->>N: URL /#encrypted.key
+        Note over N: Fragment (#...) never<br/>sent in HTTP requests
+        N->>R: URL (fragment intact)
+        R->>R: Decrypt from fragment
+    else Server Mode
+        S->>V: POST /api/secret { encrypted }
+        V->>V: Store in Redis, return id
+        S->>R: URL /r/id#key
+        R->>V: GET /api/secret?id=id
+        V->>V: Delete from Redis
+        V->>R: Encrypted payload
+        R->>R: Decrypt with key from fragment
+    end
 ```
 
 - **Key generation:** `crypto.getRandomValues()` — 256-bit key, cryptographically secure
