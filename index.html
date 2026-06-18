@@ -7,8 +7,7 @@
   <meta name="theme-color" content="#0a0a0a">
   <meta name="color-scheme" content="dark light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self';">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
-  <link rel="alternate icon" href="data:,">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
   <title>CryptSend — Encrypted Secret Sharing</title>
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -34,18 +33,35 @@
         <span id="char-counter" class="counter" aria-live="polite">0 / 5000</span>
 
         <div class="options" role="group" aria-label="Secret options">
-          <label class="toggle">
-            <input type="checkbox" id="burn-toggle" checked>
-            <span class="toggle-track">
-              <span class="toggle-thumb"></span>
-            </span>
-            <span class="toggle-label">
-              Burn after reading
-              <span id="burn-badge" class="badge badge-server" title="Stored on server, deleted after viewing">server</span>
-            </span>
-          </label>
-          <div class="option">
-            <label for="expire-select">Expires</label>
+          <div class="option-row">
+            <label class="toggle">
+              <input type="checkbox" id="burn-toggle" checked>
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              <span class="toggle-label">
+                Burn after reading
+                <span id="burn-badge" class="badge badge-server">one-time</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="option-row">
+            <label class="toggle">
+              <input type="checkbox" id="password-toggle">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              <span class="toggle-label">Password protect</span>
+            </label>
+          </div>
+
+          <div id="password-fields" class="option-row hidden">
+            <div class="password-group">
+              <input type="password" id="password-input" class="input password-input" placeholder="Enter a passphrase" autocomplete="new-password">
+              <input type="password" id="password-confirm" class="input password-input" placeholder="Confirm passphrase" autocomplete="new-password">
+              <span id="password-match" class="password-hint"></span>
+            </div>
+          </div>
+
+          <div class="option-row">
+            <label for="expire-select" class="expire-label">Expires</label>
             <select id="expire-select" class="select" disabled>
               <option value="never" selected>Never</option>
               <option value="3600">1 hour</option>
@@ -86,9 +102,24 @@
 
     <section id="reveal-view" class="view">
       <div class="card reveal-card" role="alert" aria-live="assertive">
+
         <div id="reveal-loading" class="reveal-state">
           <div class="spinner" aria-label="Decrypting..."></div>
           <p>Decrypting your secret&hellip;</p>
+        </div>
+
+        <div id="reveal-password-prompt" class="reveal-state hidden">
+          <div class="card-header">
+            <span class="card-icon">🔐</span>
+            <h2>Password Required</h2>
+          </div>
+          <p class="reveal-prompt-text">This secret is password-protected. Enter the passphrase to reveal it.</p>
+          <input type="password" id="reveal-password-input" class="input reveal-password-input" placeholder="Enter passphrase" autocomplete="off">
+          <button id="reveal-password-btn" class="btn btn-primary">
+            <span class="btn-icon">🔓</span>
+            <span class="btn-label">Reveal Secret</span>
+          </button>
+          <p id="reveal-password-error" class="password-error hidden">Incorrect passphrase.</p>
         </div>
 
         <div id="reveal-success" class="reveal-state hidden">
@@ -127,6 +158,7 @@
             <span class="btn-label">Send a Secret</span>
           </button>
         </div>
+
       </div>
     </section>
 

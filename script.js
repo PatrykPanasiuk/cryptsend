@@ -4,6 +4,12 @@ const IV_LENGTH = 12;
 const MAX_LENGTH = 5000;
 const CLIENT_BURN_DELAY = 30000;
 
+const PBKDF2_ITERATIONS = 600000;
+const SALT_LENGTH = 16;
+
+const VERSION_NO_PASSWORD = '1';
+const VERSION_PASSWORD = '2';
+
 function base64UrlEncode(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -48,6 +54,52 @@ async function importKey(base64Url) {
   );
 }
 
+async function pbkdf2DeriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  return await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: ALGORITHM, length: KEY_LENGTH },
+    false,
+    ['decrypt']
+  );
+}
+
+async function pbkdf2DeriveKeyForEncrypt(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  return await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: ALGORITHM, length: KEY_LENGTH },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
 async function encrypt(plaintext, key) {
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
   const encoded = new TextEncoder().encode(plaintext);
@@ -73,43 +125,133 @@ async function decrypt(combined, key) {
   return new TextDecoder().decode(decrypted);
 }
 
-async function createEncryptedPayload(plaintext) {
+async function createEncryptedPayload(plaintext, password) {
+  if (password) {
+    const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+    const key = await pbkdf2DeriveKeyForEncrypt(password, salt);
+    const combined = await encrypt(plaintext, key);
+    const payload = base64UrlEncode(combined);
+    const saltStr = base64UrlEncode(salt);
+    return { payload, extra: saltStr, version: VERSION_PASSWORD };
+  }
   const key = await generateKey();
   const combined = await encrypt(plaintext, key);
   const payload = base64UrlEncode(combined);
   const keyStr = await exportKey(key);
-  return { payload, key: keyStr };
+  return { payload, extra: keyStr, version: VERSION_NO_PASSWORD };
 }
 
-async function decryptPayload(payload, keyStr) {
+async function decryptPayload(payload, extra, version, password) {
+  if (version === VERSION_PASSWORD) {
+    if (!password) throw new Error('Password required');
+    const salt = base64UrlDecode(extra);
+    const key = await pbkdf2DeriveKey(password, salt);
+    const combined = base64UrlDecode(payload);
+    return await decrypt(combined, key);
+  }
   const combined = base64UrlDecode(payload);
-  const key = await importKey(keyStr);
+  const key = await importKey(extra);
   return await decrypt(combined, key);
 }
 
-function buildClientUrl(payload, key) {
-  return `${window.location.origin}${window.location.pathname}#${payload}.${key}`;
+function buildClientUrl(payload, extra, version) {
+  return `${window.location.origin}${window.location.pathname}#${version}.${payload}.${extra}`;
 }
 
-function buildServerUrl(id, key) {
-  return `${window.location.origin}/r/${id}#${key}`;
+function buildServerUrl(id, extra, version) {
+  return `${window.location.origin}/r/${id}#${version}.${extra}`;
 }
 
-function parseClientHash() {
+function parseHash() {
   const hash = window.location.hash.slice(1);
   if (!hash) return null;
-  const dotIndex = hash.lastIndexOf('.');
-  if (dotIndex === -1) return null;
-  return {
-    payload: hash.slice(0, dotIndex),
-    key: hash.slice(dotIndex + 1),
-  };
+
+  const parts = hash.split('.');
+  if (parts.length === 2) {
+    return {
+      version: VERSION_NO_PASSWORD,
+      payload: parts[0],
+      extra: parts[1],
+      hasPassword: false,
+    };
+  }
+  if (parts.length === 3 && (parts[0] === VERSION_NO_PASSWORD || parts[0] === VERSION_PASSWORD)) {
+    return {
+      version: parts[0],
+      payload: parts[1],
+      extra: parts[2],
+      hasPassword: parts[0] === VERSION_PASSWORD,
+    };
+  }
+  return null;
+}
+
+function parseHashExtraOnly() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return null;
+
+  const parts = hash.split('.');
+
+  if (parts.length === 1) {
+    return {
+      version: VERSION_NO_PASSWORD,
+      extra: parts[0],
+      hasPassword: false,
+    };
+  }
+  if (parts.length === 2) {
+    const first = parts[0];
+    if (first === VERSION_NO_PASSWORD || first === VERSION_PASSWORD) {
+      return {
+        version: first,
+        extra: parts[1],
+        hasPassword: first === VERSION_PASSWORD,
+      };
+    }
+    return {
+      version: VERSION_NO_PASSWORD,
+      extra: parts[1],
+      hasPassword: false,
+    };
+  }
+  if (parts.length === 3 && (parts[0] === VERSION_NO_PASSWORD || parts[0] === VERSION_PASSWORD)) {
+    return {
+      version: parts[0],
+      extra: parts[2],
+      hasPassword: parts[0] === VERSION_PASSWORD,
+    };
+  }
+  return null;
 }
 
 function parseServerRoute() {
   const match = window.location.pathname.match(/^\/r\/([a-f0-9]{32})$/);
   if (!match) return null;
   return { id: match[1] };
+}
+
+function checkPasswordsMatch() {
+  const p1 = document.getElementById('password-input').value;
+  const p2 = document.getElementById('password-confirm').value;
+  const hint = document.getElementById('password-match');
+  if (!p1 && !p2) {
+    hint.textContent = '';
+    hint.className = 'password-hint';
+    return true;
+  }
+  if (p1 !== p2) {
+    hint.textContent = 'Passphrases do not match';
+    hint.className = 'password-hint mismatch';
+    return false;
+  }
+  if (p1.length < 4) {
+    hint.textContent = 'Passphrase must be at least 4 characters';
+    hint.className = 'password-hint mismatch';
+    return false;
+  }
+  hint.textContent = 'Passphrases match';
+  hint.className = 'password-hint match';
+  return true;
 }
 
 async function storeOnServer(payload, ttl) {
@@ -154,8 +296,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const expireSelect = document.getElementById('expire-select');
   const serverWarning = document.getElementById('server-warning');
   const burnBadge = document.getElementById('burn-badge');
+  const passwordToggle = document.getElementById('password-toggle');
+  const passwordFields = document.getElementById('password-fields');
+  const passwordInput = document.getElementById('password-input');
+  const passwordConfirm = document.getElementById('password-confirm');
 
   const revealLoading = document.getElementById('reveal-loading');
+  const revealPasswordPrompt = document.getElementById('reveal-password-prompt');
   const revealSuccess = document.getElementById('reveal-success');
   const revealBurned = document.getElementById('reveal-burned');
   const revealError = document.getElementById('reveal-error');
@@ -164,9 +311,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const revealCopyBtn = document.getElementById('reveal-copy-btn');
   const revealNewBtn = document.getElementById('reveal-new-btn');
   const burnedNewBtn = document.getElementById('burned-new-btn');
+  const revealPasswordInput = document.getElementById('reveal-password-input');
+  const revealPasswordBtn = document.getElementById('reveal-password-btn');
+  const revealPasswordError = document.getElementById('reveal-password-error');
 
   let serverAvailable = false;
   let clientBurnTimer = null;
+  let pendingHashData = null;
 
   function showView(view) {
     createView.classList.remove('active');
@@ -230,6 +381,20 @@ document.addEventListener('DOMContentLoaded', () => {
     updateBurnBadge();
   });
 
+  passwordToggle.addEventListener('change', () => {
+    if (passwordToggle.checked) {
+      passwordFields.classList.remove('hidden');
+    } else {
+      passwordFields.classList.add('hidden');
+      passwordInput.value = '';
+      passwordConfirm.value = '';
+      document.getElementById('password-match').textContent = '';
+    }
+  });
+
+  passwordInput.addEventListener('input', checkPasswordsMatch);
+  passwordConfirm.addEventListener('input', checkPasswordsMatch);
+
   secretInput.addEventListener('input', updateCharCounter);
 
   createForm.addEventListener('submit', async (e) => {
@@ -237,12 +402,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const secret = secretInput.value.trim();
     if (!secret) return;
 
+    let password = null;
+    if (passwordToggle.checked) {
+      if (!checkPasswordsMatch()) return;
+      password = passwordInput.value;
+    }
+
     createBtn.disabled = true;
-    createBtn.querySelector('.btn-label').textContent = 'Encrypting…';
+    createBtn.querySelector('.btn-label').textContent = password ? 'Encrypting with passphrase…' : 'Encrypting…';
 
     try {
-      const { payload, key } = await createEncryptedPayload(secret);
+      const { payload, extra, version } = await createEncryptedPayload(secret, password);
       const useServer = burnToggle.checked && serverAvailable;
+      const usePassword = version === VERSION_PASSWORD;
 
       if (useServer) {
         const ttlValue = expireSelect.value;
@@ -250,11 +422,13 @@ document.addEventListener('DOMContentLoaded', () => {
         createBtn.querySelector('.btn-label').textContent = 'Storing on server…';
         try {
           const { id } = await storeOnServer(payload, ttl);
-          const url = buildServerUrl(id, key);
+          const url = buildServerUrl(id, extra, version);
           resultLink.value = url;
           resultModeBadge.textContent = 'one-time';
           resultModeBadge.className = 'badge badge-server';
-          resultDesc.textContent = 'This link works once. After viewing, the secret is permanently deleted from the server.';
+          resultDesc.textContent = usePassword
+            ? 'Passphrase-protected. Share the passphrase separately. The payload will be deleted after first view.'
+            : 'This link works once. After viewing, the secret is permanently deleted from the server.';
           resultCard.classList.remove('hidden');
           resultLink.focus();
           resultLink.select();
@@ -267,11 +441,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      const url = buildClientUrl(payload, key);
+      const url = buildClientUrl(payload, extra, version);
       resultLink.value = url;
-      resultModeBadge.textContent = 'multi-view';
-      resultModeBadge.className = 'badge badge-client';
-      resultDesc.textContent = 'Secret is embedded in the link. Anyone with the URL can view it.';
+      if (usePassword) {
+        resultModeBadge.textContent = 'protected';
+        resultModeBadge.className = 'badge badge-server';
+        resultDesc.textContent = 'Passphrase-protected. Share the passphrase with the recipient separately from this link.';
+      } else {
+        resultModeBadge.textContent = 'multi-view';
+        resultModeBadge.className = 'badge badge-client';
+        resultDesc.textContent = 'Secret is embedded in the link. Anyone with the URL can view it.';
+      }
       resultCard.classList.remove('hidden');
       resultLink.focus();
       resultLink.select();
@@ -330,8 +510,66 @@ document.addEventListener('DOMContentLoaded', () => {
   revealNewBtn.addEventListener('click', goToCreate);
   burnedNewBtn.addEventListener('click', goToCreate);
 
+  revealPasswordBtn.addEventListener('click', async () => {
+    const password = revealPasswordInput.value;
+    if (!password) return;
+
+    if (!pendingHashData) return;
+
+    revealPasswordBtn.disabled = true;
+    revealPasswordBtn.querySelector('.btn-label').textContent = 'Decrypting…';
+    revealPasswordError.classList.add('hidden');
+
+    try {
+      let encryptedPayload, extra, version;
+
+      if (pendingHashData.serverRoute) {
+        const data = await fetchFromServer(pendingHashData.serverRoute.id);
+        if (!data) {
+          showRevealState(revealBurned);
+          return;
+        }
+        encryptedPayload = data.encrypted;
+        extra = pendingHashData.extra;
+        version = pendingHashData.version;
+      } else {
+        encryptedPayload = pendingHashData.payload;
+        extra = pendingHashData.extra;
+        version = pendingHashData.version;
+      }
+
+      const plaintext = await decryptPayload(encryptedPayload, extra, version, password);
+      revealContent.textContent = plaintext;
+      revealWarning.textContent = pendingHashData.serverRoute
+        ? 'This secret was stored server-side and has been permanently deleted. Copy it now.'
+        : 'This link can be viewed again if the URL is saved. Copy it now.';
+      revealWarning.style.color = pendingHashData.serverRoute ? 'var(--danger)' : 'var(--warning)';
+      showRevealState(revealSuccess);
+      history.replaceState(null, '', window.location.origin + window.location.pathname);
+      if (!pendingHashData.serverRoute) {
+        if (clientBurnTimer) clearTimeout(clientBurnTimer);
+        clientBurnTimer = setTimeout(() => {
+          if (!revealSuccess.classList.contains('hidden')) {
+            showRevealState(revealBurned);
+            revealBurned.querySelector('p').textContent =
+              'The secret was cleared from this page for security.';
+          }
+        }, CLIENT_BURN_DELAY);
+      }
+    } catch (err) {
+      revealPasswordError.classList.remove('hidden');
+      revealPasswordBtn.disabled = false;
+      revealPasswordBtn.querySelector('.btn-label').textContent = 'Reveal Secret';
+    }
+  });
+
+  revealPasswordInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') revealPasswordBtn.click();
+  });
+
   function showRevealState(state) {
     revealLoading.classList.add('hidden');
+    revealPasswordPrompt.classList.add('hidden');
     revealSuccess.classList.add('hidden');
     revealBurned.classList.add('hidden');
     revealError.classList.add('hidden');
@@ -340,9 +578,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function handleRoute() {
     const serverRoute = parseServerRoute();
-    const clientHash = parseClientHash();
+    const hashData = parseHash();
+    const hashExtra = parseHashExtraOnly();
 
-    if (!serverRoute && !clientHash) {
+    if (!serverRoute && !hashData) {
       showView(createView);
       secretInput.focus();
       await checkServer();
@@ -351,42 +590,77 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     showView(revealView);
-    showRevealState(revealLoading);
 
-    try {
-      if (serverRoute) {
-        const hashData = parseClientHash();
-        if (!hashData) {
-          showRevealState(revealError);
-          return;
-        }
+    if (serverRoute) {
+      if (!hashExtra) {
+        showRevealState(revealError);
+        return;
+      }
+      if (hashExtra.hasPassword) {
+        pendingHashData = {
+          serverRoute,
+          extra: hashExtra.extra,
+          version: hashExtra.version,
+        };
+        revealPasswordInput.value = '';
+        revealPasswordError.classList.add('hidden');
+        revealPasswordBtn.disabled = false;
+        revealPasswordBtn.querySelector('.btn-label').textContent = 'Reveal Secret';
+        showRevealState(revealPasswordPrompt);
+        revealPasswordInput.focus();
+        return;
+      }
+      showRevealState(revealLoading);
+      try {
         const data = await fetchFromServer(serverRoute.id);
         if (!data) {
           showRevealState(revealBurned);
           return;
         }
-        const plaintext = await decryptPayload(data.encrypted, hashData.key);
+        const plaintext = await decryptPayload(data.encrypted, hashExtra.extra, hashExtra.version);
         revealContent.textContent = plaintext;
         revealWarning.textContent = 'This secret was stored server-side and has been permanently deleted. Copy it now.';
         revealWarning.style.color = 'var(--danger)';
         showRevealState(revealSuccess);
         history.replaceState(null, '', window.location.origin + window.location.pathname);
-      } else {
-        const plaintext = await decryptPayload(clientHash.payload, clientHash.key);
-        revealContent.textContent = plaintext;
-        revealWarning.textContent = 'This link can be viewed again if the URL is saved. Copy it now.';
-        revealWarning.style.color = 'var(--warning)';
-        showRevealState(revealSuccess);
-        history.replaceState(null, '', window.location.pathname);
-        if (clientBurnTimer) clearTimeout(clientBurnTimer);
-        clientBurnTimer = setTimeout(() => {
-          if (!revealSuccess.classList.contains('hidden')) {
-            showRevealState(revealBurned);
-            revealBurned.querySelector('p').textContent =
-              'The secret was cleared from this page for security. If you saved the URL, it can still be viewed again.';
-          }
-        }, CLIENT_BURN_DELAY);
+      } catch (err) {
+        showRevealState(revealError);
       }
+      return;
+    }
+
+    if (hashData.hasPassword) {
+      pendingHashData = {
+        serverRoute: null,
+        payload: hashData.payload,
+        extra: hashData.extra,
+        version: hashData.version,
+      };
+      revealPasswordInput.value = '';
+      revealPasswordError.classList.add('hidden');
+      revealPasswordBtn.disabled = false;
+      revealPasswordBtn.querySelector('.btn-label').textContent = 'Reveal Secret';
+      showRevealState(revealPasswordPrompt);
+      revealPasswordInput.focus();
+      return;
+    }
+
+    showRevealState(revealLoading);
+    try {
+      const plaintext = await decryptPayload(hashData.payload, hashData.extra, hashData.version);
+      revealContent.textContent = plaintext;
+      revealWarning.textContent = 'This link can be viewed again if the URL is saved. Copy it now.';
+      revealWarning.style.color = 'var(--warning)';
+      showRevealState(revealSuccess);
+      history.replaceState(null, '', window.location.pathname);
+      if (clientBurnTimer) clearTimeout(clientBurnTimer);
+      clientBurnTimer = setTimeout(() => {
+        if (!revealSuccess.classList.contains('hidden')) {
+          showRevealState(revealBurned);
+          revealBurned.querySelector('p').textContent =
+            'The secret was cleared from this page for security. If you saved the URL, it can still be viewed again.';
+        }
+      }, CLIENT_BURN_DELAY);
     } catch (err) {
       showRevealState(revealError);
     }
