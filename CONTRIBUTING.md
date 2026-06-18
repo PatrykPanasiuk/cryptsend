@@ -19,6 +19,7 @@ Thank you for considering contributing to CryptSend! We welcome contributions fr
 - **Browser compatibility** — target modern browsers (Chrome, Firefox, Safari, Edge)
 - **Accessibility** — ensure all interactive elements are keyboard-accessible and have ARIA labels
 - **Security** — never introduce code that compromises the zero-knowledge model
+- **No secret persistence** — never use localStorage, sessionStorage, or cookies for secrets or keys
 - **Comments** — write clear comments for complex logic, especially cryptographic operations
 
 ## Pull Request Process

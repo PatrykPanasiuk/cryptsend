@@ -4,6 +4,9 @@
 
 CryptSend lets you share passwords, tokens, and other sensitive data with a single link. Your secret is encrypted in your browser using **AES-256-GCM** and — depending on the mode — embedded directly into the URL or stored server-side for a guaranteed one-time view.
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Security](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md)
+
 > **No account required. No tracking. Open source. MIT licensed.**
 
 ---
@@ -328,12 +331,3 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [C
 ## License
 
 [MIT](LICENSE) © [Patryk Panasiuk](https://github.com/PatrykPanasiuk)
-
----
-
-## Why CryptSend?
-
-- **No brand, no BS** — a tool, not a product
-- **No accounts** — anonymous by design
-- **No tracking** — no analytics, no cookies, no fingerprinting
-- **Open source** — fully transparent, auditable, and self-hostable
