@@ -77,13 +77,12 @@
         </button>
       </form>
 
-      <div id="result-card" class="card hidden" role="alert" aria-live="polite">
-        <div class="card-header">
-          <span class="card-icon">✅</span>
-          <h2>Link Created</h2>
-          <span id="result-mode-badge" class="badge"></span>
-        </div>
-        <p id="result-desc" class="card-desc">Share this link securely.</p>
+        <div id="result-card" class="card hidden" role="alert" aria-live="polite">
+          <div class="card-header">
+            <h2>Link Created</h2>
+            <span id="result-mode-badge" class="badge"></span>
+          </div>
+          <p id="result-desc" class="card-desc">Copy the link below to share it.</p>
         <div class="link-display">
           <input type="text" id="result-link" class="input link-input" readonly aria-label="Generated secret link">
           <button id="copy-btn" class="btn btn-secondary" aria-label="Copy link to clipboard">
@@ -124,7 +123,6 @@
 
         <div id="reveal-success" class="reveal-state hidden">
           <div class="card-header">
-            <span class="card-icon">🔓</span>
             <h2>Your Secret</h2>
           </div>
           <pre id="reveal-content" class="reveal-content"></pre>
@@ -137,12 +135,10 @@
 
         <div id="reveal-burned" class="reveal-state hidden">
           <div class="card-header">
-            <span class="card-icon">🔥</span>
             <h2>Secret Consumed</h2>
           </div>
-          <p>This secret has already been viewed and destroyed. If you need to share it again, create a new link.</p>
+          <p>This secret is no longer accessible from this link.</p>
           <button id="burned-new-btn" class="btn btn-primary">
-            <span class="btn-icon">✨</span>
             <span class="btn-label">Send a New Secret</span>
           </button>
         </div>
@@ -154,7 +150,6 @@
           </div>
           <p>The link appears to be invalid, corrupted, or the secret may have already been viewed.</p>
           <button id="reveal-new-btn" class="btn btn-primary">
-            <span class="btn-icon">✨</span>
             <span class="btn-label">Send a Secret</span>
           </button>
         </div>
@@ -166,9 +161,9 @@
       <p>
         <a href="https://github.com/PatrykPanasiuk/cryptsend" target="_blank" rel="noopener noreferrer">GitHub</a>
         <span class="footer-sep">&middot;</span>
-        <a href="https://github.com/PatrykPanasiuk/cryptsend/issues" target="_blank" rel="noopener noreferrer">Report Issue</a>
+        <a href="SECURITY.md" target="_blank" rel="noopener noreferrer">Security</a>
         <span class="footer-sep">&middot;</span>
-        <a href="https://cryptsend.vercel.app" target="_blank" rel="noopener noreferrer">CryptSend</a>
+        <span>Created by Patryk Panasiuk</span>
       </p>
     </footer>
   </div>
