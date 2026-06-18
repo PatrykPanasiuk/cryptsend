@@ -177,6 +177,44 @@ sequenceDiagram
 - **CSP:** Content Security Policy restricts scripts, connections, and inline styles
 - **Rate limiting:** API limited to 20 requests per IP per 60-second window
 
+### Threat Model
+
+#### What CryptSend Protects
+
+- **Confidentiality in transit:** The plaintext secret is never transmitted over the network. Only the AES-256-GCM ciphertext leaves the browser.
+- **Server-side confidentiality:** The server operator (Vercel, Upstash) sees only encrypted payloads. The decryption key is stored exclusively in the URL fragment and is never sent to any server.
+- **Forward secrecy against server compromise:** Even if the server is compromised after a secret is delivered, the ciphertext grants no information about the plaintext without the key from the URL fragment.
+
+#### What CryptSend Does NOT Protect Against
+
+- **Compromised device:** Malware on the sender's or recipient's device can capture the secret before encryption or after decryption.
+- **Malicious browser extensions:** Extensions can read the DOM, URL bar, and intercept Web Crypto API calls.
+- **Clipboard managers:** Secrets copied to the clipboard remain accessible to other applications until overwritten.
+- **Screen capture:** The decrypted secret is displayed in the browser and can be captured visually.
+- **URL forwarding:** Anyone who receives the full URL, including the fragment, can access the secret. Fragment-based protection does not survive URL forwarding via channels that strip fragments.
+- **Targeted link sharing:** The sender's intended recipient may share the link with others. CryptSend provides no access control.
+- **Traffic analysis:** Metadata (IP addresses, request timing, payload sizes) is observable by network intermediaries and the server operator.
+- **Browser vulnerabilities:** A compromised or buggy browser undermines all client-side cryptographic guarantees.
+
+#### Client Mode Limitations
+
+In client mode (no server storage), the encrypted payload and key are both in the URL fragment. Anyone who saves the URL before or after viewing can revisit the same link and decrypt the secret again. The 30-second client-side burn timer only clears the secret from the page — it does not destroy the URL.
+
+#### Server Mode Limitations
+
+In server mode, the encrypted payload is deleted from Redis after the first successful retrieval. This prevents replay of the stored payload. However:
+- The key remains in the URL fragment and is transmitted client-side.
+- A concurrent fetch (within the same millisecond) could both retrieve the payload before deletion.
+- The Redis operator could theoretically log the payload before deletion (CryptSend has no control over the infrastructure operator's practices).
+
+#### Assumptions
+
+- The Web Crypto API implementation in the user's browser is correct and free from compromise.
+- The user's operating system and browser are free from malware.
+- For server mode: the Redis operator does not log or persist deleted keys beyond their TTL.
+- HTTPS is properly configured and the TLS connection is not intercepted.
+- The sender has correctly verified the recipient's identity before sharing the link.
+
 ---
 
 ## Project Structure
