@@ -34,10 +34,20 @@
         <span id="char-counter" class="counter" aria-live="polite">0 / 5000</span>
 
         <div class="options" role="group" aria-label="Secret options">
+          <label class="toggle">
+            <input type="checkbox" id="burn-toggle" checked>
+            <span class="toggle-track">
+              <span class="toggle-thumb"></span>
+            </span>
+            <span class="toggle-label">
+              Burn after reading
+              <span id="burn-badge" class="badge badge-server" title="Stored on server, deleted after viewing">server</span>
+            </span>
+          </label>
           <div class="option">
-            <label for="expire-select">Expires after</label>
-            <select id="expire-select" class="select" disabled title="Server-side expiry requires Upstash Redis setup">
-              <option value="never" selected>Never (link only)</option>
+            <label for="expire-select">Expires</label>
+            <select id="expire-select" class="select" disabled>
+              <option value="never" selected>Never</option>
               <option value="3600">1 hour</option>
               <option value="86400">24 hours</option>
               <option value="604800">7 days</option>
@@ -55,10 +65,11 @@
         <div class="card-header">
           <span class="card-icon">✅</span>
           <h2>Link Created</h2>
+          <span id="result-mode-badge" class="badge"></span>
         </div>
-        <p class="card-desc">Share this link securely. Your secret is encrypted and embedded — no server storage.</p>
+        <p id="result-desc" class="card-desc">Share this link securely.</p>
         <div class="link-display">
-          <input type="text" id="result-link" class="input link-input" readonly aria-label="Generated secret link" />
+          <input type="text" id="result-link" class="input link-input" readonly aria-label="Generated secret link">
           <button id="copy-btn" class="btn btn-secondary" aria-label="Copy link to clipboard">
             <span class="btn-icon">📋</span>
             <span class="btn-label">Copy</span>
@@ -66,26 +77,45 @@
         </div>
         <button id="new-secret-btn" class="btn btn-ghost">Create another secret</button>
       </div>
+
+      <div id="server-warning" class="notice hidden" role="alert">
+        <span class="notice-icon">⚠️</span>
+        <span class="notice-text">Server-side storage unavailable. Link will be client-embedded (viewable multiple times).</span>
+      </div>
     </section>
 
     <section id="reveal-view" class="view">
       <div class="card reveal-card" role="alert" aria-live="assertive">
         <div id="reveal-loading" class="reveal-state">
           <div class="spinner" aria-label="Decrypting..."></div>
-          <p>Decrypting your secret…</p>
+          <p>Decrypting your secret&hellip;</p>
         </div>
+
         <div id="reveal-success" class="reveal-state hidden">
           <div class="card-header">
             <span class="card-icon">🔓</span>
             <h2>Your Secret</h2>
           </div>
           <pre id="reveal-content" class="reveal-content"></pre>
-          <p class="reveal-warning">This secret can only be viewed once. Copy it now.</p>
+          <p id="reveal-warning" class="reveal-warning">Copy this secret now. It will not be shown again.</p>
           <button id="reveal-copy-btn" class="btn btn-secondary">
             <span class="btn-icon">📋</span>
             <span class="btn-label">Copy Secret</span>
           </button>
         </div>
+
+        <div id="reveal-burned" class="reveal-state hidden">
+          <div class="card-header">
+            <span class="card-icon">🔥</span>
+            <h2>Secret Consumed</h2>
+          </div>
+          <p>This secret has already been viewed and destroyed. If you need to share it again, create a new link.</p>
+          <button id="burned-new-btn" class="btn btn-primary">
+            <span class="btn-icon">✨</span>
+            <span class="btn-label">Send a New Secret</span>
+          </button>
+        </div>
+
         <div id="reveal-error" class="reveal-state hidden">
           <div class="card-header">
             <span class="card-icon">⚠️</span>
@@ -103,10 +133,10 @@
     <footer class="footer">
       <p>
         <a href="https://github.com/PatrykPanasiuk/cryptsend" target="_blank" rel="noopener noreferrer">GitHub</a>
-        &middot;
+        <span class="footer-sep">&middot;</span>
         <a href="https://github.com/PatrykPanasiuk/cryptsend/issues" target="_blank" rel="noopener noreferrer">Report Issue</a>
-        &middot;
-        Client-side only
+        <span class="footer-sep">&middot;</span>
+        <a href="https://cryptsend.vercel.app" target="_blank" rel="noopener noreferrer">CryptSend</a>
       </p>
     </footer>
   </div>
