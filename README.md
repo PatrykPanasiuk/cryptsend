@@ -20,7 +20,7 @@ CryptSend lets you share passwords, tokens, and other sensitive data with a sing
 - **Two sharing modes:**
   - **Multi-view (client mode)** — encrypted payload in URL fragment, no server needed
   - **One-time (server mode)** — payload stored in Redis, deleted after first retrieval, requires [Upstash Redis](https://upstash.com)
-- **Burn after reading** — secret cleared from the page after 30 seconds (client mode) or permanently deleted from server (server mode, requires Redis)
+- **Burn after reading** — secret cleared from the page after 30 seconds (client mode) or deleted from server on retrieval (server mode, requires Redis)
 - **Expiry** — configurable TTL for server-stored secrets
 - **Rate-limited API** — protects against brute-force and abuse
 - **Privacy-first** — no analytics, no cookies, no tracking, no fingerprinting
