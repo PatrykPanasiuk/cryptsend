@@ -13,6 +13,7 @@ CryptSend lets you share passwords, tokens, and other sensitive data with a sing
 - **AES-256-GCM encryption** — industry-standard, military-grade authenticated encryption
 - **Client-side encryption** — your secret never leaves your browser unencrypted
 - **Zero-knowledge** — the server never sees your plaintext or the decryption key
+- **Password protection** — optional passphrase layer with PBKDF2-SHA-256 (600k iterations)
 - **Two sharing modes:**
   - **Multi-view (client mode)** — encrypted payload in URL fragment, no server needed
   - **One-time (server mode)** — payload stored in Redis, deleted after viewing, requires [Upstash Redis](https://upstash.com)
@@ -53,6 +54,24 @@ The encrypted payload is stored on the server (Redis). The URL contains an ID to
 ```
 
 The server never has the key. The payload is destroyed after the first read.
+
+### Password-Protected Mode (Client & Server)
+
+Optionally protect any link with a passphrase. When enabled, the encryption key is derived from the passphrase using **PBKDF2-SHA-256** (600,000 iterations) with a random 16-byte salt. The salt is stored in the URL instead of the encryption key.
+
+**URL formats:**
+
+```
+# <version>.<payload>.<salt>        Client mode (v2)
+/r/<id>#<version>.<salt>            Server mode (v2)
+```
+
+- `version = 1` — no password (key is in the URL)
+- `version = 2` — password-protected (salt is in the URL, key derived from passphrase)
+
+**To reveal:** the recipient opens the link, is prompted for the passphrase, and the key is derived client-side. The passphrase is never transmitted or stored.
+
+> **Backward compatible:** all existing links (no version prefix) are treated as v1 automatically.
 
 ---
 
@@ -139,6 +158,7 @@ Sender's Browser                        Recipient's Browser
 ```
 
 - **Key generation:** `crypto.getRandomValues()` — cryptographically secure 256-bit key
+- **Password-based key derivation:** PBKDF2-SHA-256, 600,000 iterations, 16-byte random salt
 - **Encryption:** AES-256-GCM with 96-bit random IV and 128-bit authentication tag
 - **Fragment security:** The URL fragment (`#...`) is never sent in HTTP requests
 - **No persistence:** No cookies, localStorage, or IndexedDB
@@ -225,8 +245,8 @@ Retrieve a secret. The secret is **deleted immediately** after retrieval (one-ti
 
 ## Future Improvements
 
-- [ ] **Password-protected secrets** — require a passphrase in addition to the URL key
-- [ ] **Custom passphrase** — derive encryption key from a memorable passphrase
+- [x] **Password-protected secrets** — passphrase derived via PBKDF2-SHA-256 (600k iterations)
+- [ ] **Custom expiry per view** — sender sets exact expiration date/time
 - [ ] **Browser extension** — right-click → send as encrypted secret
 - [ ] **CLI tool** — `npx cryptsend send "my secret"` for terminal usage
 - [ ] **QR code sharing** — scan to open the secret on mobile
