@@ -1,0 +1,28 @@
+{
+  "name": "cryptsend",
+  "version": "1.0.0",
+  "description": "Zero-knowledge, client-side encrypted secret sharing. Create and share secrets with end-to-end encryption — no servers ever see your data.",
+  "private": false,
+  "license": "MIT",
+  "author": "PatrykPanasiuk",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static site — nothing to build'",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "encryption",
+    "secret-sharing",
+    "zero-knowledge",
+    "privacy",
+    "password-sharing",
+    "open-source"
+  ],
+  "dependencies": {
+    "@vercel/kv": "^3.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^41.0.0"
+  }
+}

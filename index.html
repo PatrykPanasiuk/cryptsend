@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Zero-knowledge, end-to-end encrypted secret sharing. No servers ever see your data.">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="color-scheme" content="dark light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self';">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+  <link rel="alternate icon" href="data:,">
+  <title>CryptSend — Encrypted Secret Sharing</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app" role="main">
+    <header>
+      <h1 class="logo">CryptSend</h1>
+      <p class="tagline">Zero-knowledge encrypted secret sharing</p>
+    </header>
+
+    <section id="create-view" class="view active">
+      <form id="create-form" autocomplete="off">
+        <label for="secret-input" class="visually-hidden">Your secret</label>
+        <textarea
+          id="secret-input"
+          class="input"
+          placeholder="Paste or type your secret here..."
+          rows="4"
+          maxlength="5000"
+          autofocus
+          aria-describedby="char-counter"
+        ></textarea>
+        <span id="char-counter" class="counter" aria-live="polite">0 / 5000</span>
+
+        <div class="options" role="group" aria-label="Secret options">
+          <div class="option">
+            <label for="expire-select">Expires after</label>
+            <select id="expire-select" class="select" disabled title="Server-side expiry requires Vercel KV setup">
+              <option value="never" selected>Never (link only)</option>
+              <option value="3600">1 hour</option>
+              <option value="86400">24 hours</option>
+              <option value="604800">7 days</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="create-btn">
+          <span class="btn-icon">🔒</span>
+          <span class="btn-label">Create Encrypted Link</span>
+        </button>
+      </form>
+
+      <div id="result-card" class="card hidden" role="alert" aria-live="polite">
+        <div class="card-header">
+          <span class="card-icon">✅</span>
+          <h2>Link Created</h2>
+        </div>
+        <p class="card-desc">Share this link securely. Your secret is encrypted and embedded — no server storage.</p>
+        <div class="link-display">
+          <input type="text" id="result-link" class="input link-input" readonly aria-label="Generated secret link" />
+          <button id="copy-btn" class="btn btn-secondary" aria-label="Copy link to clipboard">
+            <span class="btn-icon">📋</span>
+            <span class="btn-label">Copy</span>
+          </button>
+        </div>
+        <button id="new-secret-btn" class="btn btn-ghost">Create another secret</button>
+      </div>
+    </section>
+
+    <section id="reveal-view" class="view">
+      <div class="card reveal-card" role="alert" aria-live="assertive">
+        <div id="reveal-loading" class="reveal-state">
+          <div class="spinner" aria-label="Decrypting..."></div>
+          <p>Decrypting your secret…</p>
+        </div>
+        <div id="reveal-success" class="reveal-state hidden">
+          <div class="card-header">
+            <span class="card-icon">🔓</span>
+            <h2>Your Secret</h2>
+          </div>
+          <pre id="reveal-content" class="reveal-content"></pre>
+          <p class="reveal-warning">This secret can only be viewed once. Copy it now.</p>
+          <button id="reveal-copy-btn" class="btn btn-secondary">
+            <span class="btn-icon">📋</span>
+            <span class="btn-label">Copy Secret</span>
+          </button>
+        </div>
+        <div id="reveal-error" class="reveal-state hidden">
+          <div class="card-header">
+            <span class="card-icon">⚠️</span>
+            <h2>Cannot Decrypt</h2>
+          </div>
+          <p>The link appears to be invalid, corrupted, or the secret may have already been viewed.</p>
+          <button id="reveal-new-btn" class="btn btn-primary">
+            <span class="btn-icon">✨</span>
+            <span class="btn-label">Send a Secret</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>
+        <a href="https://github.com/PatrykPanasiuk/cryptsend" target="_blank" rel="noopener noreferrer">GitHub</a>
+        &middot;
+        <a href="https://github.com/PatrykPanasiuk/cryptsend/issues" target="_blank" rel="noopener noreferrer">Report Issue</a>
+        &middot;
+        Client-side only
+      </p>
+    </footer>
+  </div>
+
+  <script src="/script.js" type="module"></script>
+</body>
+</html>
