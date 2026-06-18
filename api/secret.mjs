@@ -46,6 +46,70 @@ function clientIp(request) {
     || 'unknown';
 }
 
+export async function GET(request) {
+  const ip = clientIp(request);
+  if (!rateLimit(ip)) {
+    return new Response(
+      JSON.stringify({ error: 'Too many requests. Try again later.' }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': '60',
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
+  }
+
+  const redis = await getRedis();
+  if (!redis) {
+    return new Response(
+      JSON.stringify({ error: 'Server-side storage is not configured.' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get('id');
+
+  if (!id || !/^[a-f0-9]{32}$/.test(id)) {
+    return new Response(
+      JSON.stringify({ error: 'Missing or invalid parameter: id.' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const key = `secret:${id}`;
+  const encrypted = await redis.get(key);
+
+  if (!encrypted) {
+    return new Response(
+      JSON.stringify({ error: 'Secret not found or already viewed.' }),
+      {
+        status: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
+    );
+  }
+
+  await redis.del(key);
+
+  return new Response(
+    JSON.stringify({ encrypted }),
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
+    }
+  );
+}
+
 export async function POST(request) {
   const ip = clientIp(request);
   if (!rateLimit(ip)) {
@@ -113,70 +177,6 @@ export async function POST(request) {
     JSON.stringify({ id, ttl }),
     {
       status: 201,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-      },
-    }
-  );
-}
-
-export async function GET(request) {
-  const ip = clientIp(request);
-  if (!rateLimit(ip)) {
-    return new Response(
-      JSON.stringify({ error: 'Too many requests. Try again later.' }),
-      {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': '60',
-          'Cache-Control': 'no-store',
-        },
-      }
-    );
-  }
-
-  const redis = await getRedis();
-  if (!redis) {
-    return new Response(
-      JSON.stringify({ error: 'Server-side storage is not configured.' }),
-      { status: 503, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const url = new URL(request.url);
-  const id = url.searchParams.get('id');
-
-  if (!id || !/^[a-f0-9]{32}$/.test(id)) {
-    return new Response(
-      JSON.stringify({ error: 'Missing or invalid parameter: id.' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const key = `secret:${id}`;
-  const encrypted = await redis.get(key);
-
-  if (!encrypted) {
-    return new Response(
-      JSON.stringify({ error: 'Secret not found or already viewed.' }),
-      {
-        status: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
-      }
-    );
-  }
-
-  await redis.del(key);
-
-  return new Response(
-    JSON.stringify({ encrypted }),
-    {
-      status: 200,
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-store, no-cache, must-revalidate',

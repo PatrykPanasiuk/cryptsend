@@ -248,31 +248,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const ttlValue = expireSelect.value;
         const ttl = ttlValue === 'never' ? 604800 : parseInt(ttlValue, 10);
         createBtn.querySelector('.btn-label').textContent = 'Storing on server…';
-        const { id } = await storeOnServer(payload, ttl);
-        const url = buildServerUrl(id, key);
-        resultLink.value = url;
-        resultModeBadge.textContent = 'one-time';
-        resultModeBadge.className = 'badge badge-server';
-        resultDesc.textContent = 'This link works once. After viewing, the secret is permanently deleted from the server.';
-      } else {
-        const url = buildClientUrl(payload, key);
-        resultLink.value = url;
-        resultModeBadge.textContent = 'multi-view';
-        resultModeBadge.className = 'badge badge-client';
-        resultDesc.textContent = burnToggle.checked
-          ? 'Server unavailable. Secret is embedded in the link and can be viewed multiple times.'
-          : 'Secret is embedded in the link. Anyone with the URL can view it.';
+        try {
+          const { id } = await storeOnServer(payload, ttl);
+          const url = buildServerUrl(id, key);
+          resultLink.value = url;
+          resultModeBadge.textContent = 'one-time';
+          resultModeBadge.className = 'badge badge-server';
+          resultDesc.textContent = 'This link works once. After viewing, the secret is permanently deleted from the server.';
+          resultCard.classList.remove('hidden');
+          resultLink.focus();
+          resultLink.select();
+          window.location.hash = '';
+          return;
+        } catch (err) {
+          serverAvailable = false;
+          updateBurnBadge();
+          serverWarning.classList.remove('hidden');
+        }
       }
 
+      const url = buildClientUrl(payload, key);
+      resultLink.value = url;
+      resultModeBadge.textContent = 'multi-view';
+      resultModeBadge.className = 'badge badge-client';
+      resultDesc.textContent = 'Secret is embedded in the link. Anyone with the URL can view it.';
       resultCard.classList.remove('hidden');
       resultLink.focus();
       resultLink.select();
       window.location.hash = '';
-    } catch (err) {
-      resultModeBadge.textContent = 'error';
-      resultModeBadge.className = 'badge badge-client';
-      resultDesc.textContent = `Failed: ${err.message}. Try again or disable burn-after-reading.`;
-      resultCard.classList.remove('hidden');
     } finally {
       createBtn.disabled = false;
       createBtn.querySelector('.btn-label').textContent = 'Create Encrypted Link';
