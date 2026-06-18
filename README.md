@@ -92,14 +92,12 @@ npm run dev
 
 ### Server-Side Storage (Optional)
 
-By default, CryptSend stores everything in the URL (fully client-side). If you want to add server-side storage with expiry and self-destruct, set up [Vercel KV](https://vercel.com/docs/storage/vercel-kv):
+By default, CryptSend stores everything in the URL (fully client-side). If you want to add server-side storage with expiry and self-destruct, set up [Upstash Redis](https://upstash.com) (or any Redis provider) and configure these environment variables:
 
-```bash
-vercel kv create
-vercel env pull
-```
+- `KV_URL` or `REDIS_URL` or `UPSTASH_REDIS_REST_URL`
+- `KV_REST_API_TOKEN` or `REDIS_TOKEN` or `UPSTASH_REDIS_REST_TOKEN`
 
-The API routes in `api/secret.mjs` will be enabled automatically when Vercel KV is configured.
+The API routes in `api/secret.mjs` will be enabled automatically when Redis is configured.
 
 ---
 
@@ -107,7 +105,7 @@ The API routes in `api/secret.mjs` will be enabled automatically when Vercel KV 
 
 ### `POST /api/secret`
 
-Store an encrypted payload server-side (requires Vercel KV).
+Store an encrypted payload server-side (requires Redis).
 
 **Request body:**
 
@@ -168,7 +166,7 @@ cryptsend/
 ├── style.css           # Styles (dark/light mode)
 ├── script.js           # Client-side logic + Web Crypto API
 ├── api/
-│   └── secret.mjs      # Serverless API (Vercel KV storage)
+│   └── secret.mjs      # Serverless API (Redis storage)
 ├── package.json        # Dependencies and scripts
 ├── vercel.json         # Vercel deployment configuration
 ├── README.md           # This file
@@ -186,7 +184,7 @@ cryptsend/
 - **Runtime:** Browser (Web Crypto API + vanilla JS)
 - **Encryption:** AES-256-GCM
 - **Serverless:** Vercel Functions (Node.js)
-- **Storage:** Vercel KV (optional, for server-side mode)
+- **Storage:** Upstash Redis (optional, for server-side mode)
 - **Deployment:** Vercel
 
 ---
