@@ -10,14 +10,14 @@ CryptSend lets you share passwords, tokens, and other sensitive data with a sing
 
 ## Features
 
-- **AES-256-GCM encryption** — industry-standard, military-grade authenticated encryption
+- **AES-256-GCM encryption** — authenticated encryption using the Web Crypto API
 - **Client-side encryption** — your secret never leaves your browser unencrypted
 - **Zero-knowledge** — the server never sees your plaintext or the decryption key
 - **Password protection** — optional passphrase layer with PBKDF2-SHA-256 (600k iterations)
 - **Two sharing modes:**
   - **Multi-view (client mode)** — encrypted payload in URL fragment, no server needed
-  - **One-time (server mode)** — payload stored in Redis, deleted after viewing, requires [Upstash Redis](https://upstash.com)
-- **Burn after reading** — secret cleared from the page after viewing
+  - **One-time (server mode)** — payload stored in Redis, deleted after first retrieval, requires [Upstash Redis](https://upstash.com)
+- **Burn after reading** — secret cleared from the page after 30 seconds (client mode) or permanently deleted from server (server mode, requires Redis)
 - **Expiry** — configurable TTL for server-stored secrets
 - **Rate-limited API** — protects against brute-force and abuse
 - **Privacy-first** — no analytics, no cookies, no tracking, no fingerprinting
@@ -32,28 +32,23 @@ CryptSend lets you share passwords, tokens, and other sensitive data with a sing
 
 ### Multi-View Mode (Client-Only, Default)
 
-The encrypted payload and key are both stored in the URL fragment (the part after `#`). The fragment is never sent to any server. When the recipient opens the link, the page reads the fragment, decrypts the secret in the browser, and displays it.
+The encrypted payload and key are stored in the URL fragment (the part after `#`), which is never sent to any server. The recipient opens the link, the page reads the fragment, decrypts the secret in the browser, and displays it.
 
 ```
 /#<base64url(IV + ciphertext + auth_tag)>.<base64url(key)>
 ```
 
-No server storage needed. Fully zero-knowledge. Anyone with the URL can view the secret.
+Anyone with the full URL can view the secret.
 
 ### One-Time Mode (Server-Side Storage)
 
-The encrypted payload is stored on the server (Redis). The URL contains an ID to fetch the payload and the key in the fragment. When the recipient opens the link:
-
-1. The page fetches the encrypted payload from `/api/secret?id=<id>`
-2. The API returns the payload and **deletes it immediately** from Redis
-3. The page decrypts the payload using the key from the URL fragment
-4. The secret is displayed once
+The encrypted payload is stored on the server (Redis). The URL contains an ID to fetch the payload, while the key remains in the fragment. When the recipient opens the link, the page fetches the encrypted payload from `/api/secret?id=<id>`, the API returns the payload and deletes it immediately from Redis, and the page decrypts using the key from the fragment.
 
 ```
 /r/<id>#<key>
 ```
 
-The server never has the key. The payload is destroyed after the first read.
+The server never has the key. Server mode provides a single-use payload, but the key must still be transmitted client-side.
 
 ### Password-Protected Mode (Client & Server)
 
@@ -157,11 +152,11 @@ Sender's Browser                        Recipient's Browser
       │         → Secret shown once              │
 ```
 
-- **Key generation:** `crypto.getRandomValues()` — cryptographically secure 256-bit key
+- **Key generation:** `crypto.getRandomValues()` — 256-bit key, cryptographically secure
 - **Password-based key derivation:** PBKDF2-SHA-256, 600,000 iterations, 16-byte random salt
 - **Encryption:** AES-256-GCM with 96-bit random IV and 128-bit authentication tag
-- **Fragment security:** The URL fragment (`#...`) is never sent in HTTP requests
-- **No persistence:** No cookies, localStorage, or IndexedDB
+- **Fragment security:** The URL fragment (`#...`) is never sent in HTTP requests — only the browser has access to it
+- **No persistence:** No cookies, localStorage, or IndexedDB are used for secrets
 - **CSP:** Content Security Policy restricts scripts, connections, and inline styles
 - **Rate limiting:** API limited to 20 requests per IP per 60-second window
 
