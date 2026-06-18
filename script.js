@@ -428,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
           resultModeBadge.className = 'badge badge-server';
           resultDesc.textContent = usePassword
             ? 'Passphrase-protected. Share the passphrase separately. The payload will be deleted after first view.'
-            : 'This link works once. After viewing, the secret is permanently deleted from the server.';
+            : 'This link works once. After viewing, the secret is no longer available from the server.';
           resultCard.classList.remove('hidden');
           resultLink.focus();
           resultLink.select();
@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const plaintext = await decryptPayload(encryptedPayload, extra, version, password);
       revealContent.textContent = plaintext;
       revealWarning.textContent = pendingHashData.serverRoute
-        ? 'This secret was stored server-side and has been permanently deleted. Copy it now.'
+        ? 'This secret was stored server-side and is no longer available. Copy it now.'
         : 'This link can be viewed again if the URL is saved. Copy it now.';
       revealWarning.style.color = pendingHashData.serverRoute ? 'var(--danger)' : 'var(--warning)';
       showRevealState(revealSuccess);
@@ -619,7 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const plaintext = await decryptPayload(data.encrypted, hashExtra.extra, hashExtra.version);
         revealContent.textContent = plaintext;
-        revealWarning.textContent = 'This secret was stored server-side and has been permanently deleted. Copy it now.';
+        revealWarning.textContent = 'This secret was stored server-side and is no longer available. Copy it now.';
         revealWarning.style.color = 'var(--danger)';
         showRevealState(revealSuccess);
         history.replaceState(null, '', window.location.origin + window.location.pathname);
